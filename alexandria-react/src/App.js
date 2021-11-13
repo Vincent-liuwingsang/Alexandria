@@ -1,13 +1,17 @@
-import React, { Component } from "react";
 import axios from "axios";
-import moment from "moment";
 import { motion } from "framer-motion";
-import { GiBookshelf } from "react-icons/gi";
 import { debounce, deburr, uniqBy } from "lodash";
-import SpinnerBlack from "./spinner-black.svg";
-import SplitPane from "react-split-pane";
+import moment from "moment";
 import { Line } from "rc-progress";
+import React, { Component } from "react";
+import { Document, Page, pdfjs } from "react-pdf";
+import SplitPane from "react-split-pane";
+import AutoSizer from "react-virtualized-auto-sizer";
+import { FixedSizeList as List } from "react-window";
+import SpinnerBlack from "./spinner-black.svg";
 import downloadCompleteSound from "./unconvinced.mp3";
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 // loading electron from the window to access IpcRenderer
 const electron = window.require("electron");
@@ -33,6 +37,9 @@ class App extends Component {
       activeTab: "search",
       downloads: [],
       localBooks: null,
+      activeBookContent: "",
+      activeBookPage: 0,
+      activeBook: {},
     };
     this.fetchGoogleBooksDebounced = debounce(this.fetchGoogleBooks, 300);
   }
@@ -198,9 +205,18 @@ class App extends Component {
     }
   };
 
-  onLocalBookClick = (localBook) => {
+  onLocalBookClick = async (localBook) => {
     // when a local book is clicked
-    ipcRenderer.invoke("open-book", localBook);
+    const { content, lastReadPage = 1 } = await ipcRenderer.invoke(
+      "open-book",
+      localBook
+    );
+    this.setState((x) => ({
+      ...x,
+      activeBook: localBook,
+      activeBookContent: content,
+      activeBookLastReadPage: lastReadPage,
+    }));
   };
 
   handleLibgenSearchResults = (searchResults, selectedBook) => {
@@ -1063,8 +1079,73 @@ class App extends Component {
     return BookRows;
   };
 
-  ereader = () => {
-    return <div id="ereader"></div>;
+  BookReader = () => {
+    const Row = ({ index, style }) => (
+      <div style={style}>
+        <Page pageNumber={index + 1} />
+      </div>
+    );
+
+    return (
+      <div
+        style={{
+          overflow: "scroll",
+          maxHeight: "100vh",
+          minHeight: "100vh",
+          position: "relative",
+          borderRight: `1px solid lightgrey`,
+          background: "#eee",
+        }}
+      >
+        <div
+          style={{
+            zIndex: 2,
+            padding: 10,
+            borderBottom: `2px solid #eee`,
+            position: "absolute",
+            width: "100%",
+            backgroundColor: "white",
+            height: 40,
+            display: "flex",
+            flexDirection: "row",
+          }}
+          onClick={() =>
+            this.setState((x) => ({
+              ...x,
+              activeBook: undefined,
+              activeBookContent: undefined,
+              activeBookLastReadPage: undefined,
+            }))
+          }
+        >
+          {`👈🏻 ${this.state.activeBook?.book?.volumeInfo?.title} - ${
+            this.state.activeBook?.book?.volumeInfo?.subtitle
+          } (${(this.state.activeBook?.book?.volumeInfo?.authors || []).join(
+            ", "
+          )})`}
+        </div>
+        <Document
+          file={`data:application/pdf;base64,${this.state.activeBookContent}`}
+          onLoadSuccess={({ numPages }) =>
+            this.setState((x) => ({ ...x, activeBookPages: numPages }))
+          }
+        >
+          <AutoSizer>
+            {({ height, width }) => (
+              <List
+                className="List"
+                height={height}
+                itemCount={this.state.activeBookPages}
+                itemSize={height}
+                width={width}
+              >
+                {Row}
+              </List>
+            )}
+          </AutoSizer>
+        </Document>
+      </div>
+    );
   };
 
   MainArea = (props) => {
@@ -1131,7 +1212,11 @@ class App extends Component {
           </div>
         </SplitPane>
       );
-    } else if (this.state.activeTab === "bookshelf") {
+    }
+
+    const hasActiveBook = !!this.state.activeBookContent;
+
+    if (this.state.activeTab === "bookshelf" && !hasActiveBook) {
       return (
         <div
           style={{
@@ -1163,6 +1248,10 @@ class App extends Component {
           </div>
         </div>
       );
+    }
+
+    if (hasActiveBook) {
+      return <this.BookReader />;
     }
   };
 

@@ -13,12 +13,16 @@
     "framer-motion": "^1.11.1",
     "lodash": "^4.17.15",
     "moment": "^2.26.0",
+    "pdfjs-dist": "^2.10.377",
     "rc-progress": "^3.0.0",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
     "react-icons": "^3.10.0",
+    "react-pdf": "^5.5.0",
     "react-scripts": "3.4.1",
-    "react-split-pane": "^0.1.91"
+    "react-split-pane": "^0.1.91",
+    "react-virtualized-auto-sizer": "^1.0.6",
+    "react-window": "^1.8.6"
   },
   "scripts": {
     "start": "PORT=2020 BROWSER=none react-scripts start",

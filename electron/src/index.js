@@ -5,7 +5,6 @@ var convert = require("xml-js");
 const fs = require("fs");
 const path = require("path");
 const open = require("open");
-const { exec } = require("child_process");
 
 // checking whether this is the development environment
 const isDev = process.env.DEV === "true";
@@ -223,8 +222,21 @@ ipcMain.handle("get-local-books", (event) => {
   return books;
 });
 
-ipcMain.handle("open-book", (event, localBook) => {
-  open(localBook.path);
+ipcMain.handle("open-book", async (event, localBook) => {
+  const dataJsonPath = [
+    ...localBook.path.split("/").slice(0, -1),
+    "data.json",
+  ].join("/");
+
+  const [content, dataJson] = await Promise.allSettled([
+    fs.promises.readFile(localBook.path, { encoding: "base64" }),
+    fs.promises.readFile(dataJsonPath),
+  ]);
+
+  return {
+    content: content.value,
+    lastReadPage: JSON.parse(dataJson.value).lastReadPage,
+  };
 });
 
 ipcMain.handle("open-books-dir", (event) => {
@@ -251,9 +263,8 @@ ipcMain.handle("download-book", (event, book) => {
 
     // getting the filename from the headers
     console.log(request.headers["content-disposition"]);
-    let filename = request.headers["content-disposition"].split(
-      `filename*=UTF-8''`
-    )[1];
+    let filename =
+      request.headers["content-disposition"].split(`filename*=UTF-8''`)[1];
     console.log({ filename });
 
     // ensuring the books directory exists
@@ -271,6 +282,7 @@ ipcMain.handle("download-book", (event, book) => {
     // creating the directory for this book
     if (!fs.existsSync(bookDir)) fs.mkdirSync(bookDir);
 
+    googleBook.lastReadPage = 1;
     // writing out the google books JSON blob for this book inside of bookDir
     let bookData = JSON.stringify(googleBook);
     fs.writeFileSync(path.join(bookDir, "data.json"), bookData);
