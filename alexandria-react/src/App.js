@@ -1087,12 +1087,6 @@ class App extends Component {
   };
 
   BookReader = () => {
-    const Row = ({ index, style }) => (
-      <div style={style}>
-        <Page pageNumber={index + 1} />
-      </div>
-    );
-
     return (
       <div
         style={{
@@ -1139,6 +1133,7 @@ class App extends Component {
         >
           <AutoSizer>
             {({ height, width }) => {
+              console.log({ height, width });
               return (
                 <List
                   className="List"
@@ -1154,7 +1149,11 @@ class App extends Component {
                   }
                   initialScrollOffset={this.state.activeBookLastReadOffset}
                 >
-                  {Row}
+                  {({ index, style }) => (
+                    <div style={style}>
+                      <Page pageNumber={index + 1} width={width} />
+                    </div>
+                  )}
                 </List>
               );
             }}
