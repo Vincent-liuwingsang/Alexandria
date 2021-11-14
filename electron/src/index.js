@@ -235,13 +235,25 @@ ipcMain.handle("open-book", async (event, localBook) => {
 
   return {
     content: content.value,
-    lastReadPage: JSON.parse(dataJson.value).lastReadPage,
+    lastReadOffset: JSON.parse(dataJson.value).lastReadOffset,
   };
 });
 
 ipcMain.handle("open-books-dir", (event) => {
   // opens the directory where the books are stored
   open(booksDir);
+});
+
+ipcMain.handle("save-current-book-offset", (event, { book, offset }) => {
+  const dataJsonPath = [...book.path.split("/").slice(0, -1), "data.json"].join(
+    "/"
+  );
+  const dataJsonContent = fs.readFileSync(dataJsonPath);
+  console.log("dataJsonContent", dataJsonContent);
+  const dataJson = JSON.parse(dataJsonContent);
+  dataJson.lastReadOffset = offset;
+  console.log("saving dataJson", dataJson);
+  fs.writeFileSync(dataJsonPath, JSON.stringify(dataJson));
 });
 
 ipcMain.handle("download-book", (event, book) => {
@@ -282,7 +294,7 @@ ipcMain.handle("download-book", (event, book) => {
     // creating the directory for this book
     if (!fs.existsSync(bookDir)) fs.mkdirSync(bookDir);
 
-    googleBook.lastReadPage = 1;
+    googleBook.lastReadOffset = 1;
     // writing out the google books JSON blob for this book inside of bookDir
     let bookData = JSON.stringify(googleBook);
     fs.writeFileSync(path.join(bookDir, "data.json"), bookData);

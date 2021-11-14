@@ -27,6 +27,9 @@ const bytesToString = (bytes) => {
   );
 };
 
+const updateBookOffset = debounce((offset) => {
+  ipcRenderer.invoke("save-current-book-offset", offset);
+}, 500);
 class App extends Component {
   constructor(props) {
     super(props);
@@ -123,6 +126,10 @@ class App extends Component {
     });
   };
 
+  updateBookOffset = debounce((bookAndOffset) => {
+    ipcRenderer.invoke("save-current-book-offset", bookAndOffset);
+  }, 500);
+
   setActiveTab = (tab) => {
     this.setState({ activeTab: tab, selectedBook: null });
 
@@ -207,7 +214,7 @@ class App extends Component {
 
   onLocalBookClick = async (localBook) => {
     // when a local book is clicked
-    const { content, lastReadPage = 1 } = await ipcRenderer.invoke(
+    const { content, lastReadOffset = 0 } = await ipcRenderer.invoke(
       "open-book",
       localBook
     );
@@ -215,7 +222,7 @@ class App extends Component {
       ...x,
       activeBook: localBook,
       activeBookContent: content,
-      activeBookLastReadPage: lastReadPage,
+      activeBookLastReadOffset: lastReadOffset,
     }));
   };
 
@@ -1114,7 +1121,7 @@ class App extends Component {
               ...x,
               activeBook: undefined,
               activeBookContent: undefined,
-              activeBookLastReadPage: undefined,
+              activeBookLastReadOffset: undefined,
             }))
           }
         >
@@ -1131,17 +1138,26 @@ class App extends Component {
           }
         >
           <AutoSizer>
-            {({ height, width }) => (
-              <List
-                className="List"
-                height={height}
-                itemCount={this.state.activeBookPages}
-                itemSize={height}
-                width={width}
-              >
-                {Row}
-              </List>
-            )}
+            {({ height, width }) => {
+              return (
+                <List
+                  className="List"
+                  height={height}
+                  itemCount={this.state.activeBookPages}
+                  itemSize={height}
+                  width={width}
+                  onScroll={({ scrollOffset }) =>
+                    this.updateBookOffset({
+                      book: this.state.activeBook,
+                      offset: scrollOffset,
+                    })
+                  }
+                  initialScrollOffset={this.state.activeBookLastReadOffset}
+                >
+                  {Row}
+                </List>
+              );
+            }}
           </AutoSizer>
         </Document>
       </div>
