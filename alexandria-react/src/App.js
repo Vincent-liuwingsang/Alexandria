@@ -1127,19 +1127,29 @@ class App extends Component {
         </div>
         <Document
           file={`data:application/pdf;base64,${this.state.activeBookContent}`}
-          onLoadSuccess={({ numPages }) =>
-            this.setState((x) => ({ ...x, activeBookPages: numPages }))
-          }
+          onLoadSuccess={async (pdf) => {
+            const page = await pdf.getPage(1);
+            const { height, width } = await page.getViewport({ scale: 1.0 });
+            const activeBookPages = await pdf.numPages;
+            this.setState((x) => ({
+              ...x,
+              activeBookPages,
+              activeBookHeight: height,
+              activeBookWidth: width,
+            }));
+          }}
         >
           <AutoSizer>
             {({ height, width }) => {
-              console.log({ height, width });
               return (
                 <List
                   className="List"
                   height={height}
                   itemCount={this.state.activeBookPages}
-                  itemSize={height}
+                  itemSize={
+                    (this.state.activeBookHeight || 1) *
+                    (width / (this.state.activeBookWidth || 1))
+                  }
                   width={width}
                   onScroll={({ scrollOffset }) =>
                     this.updateBookOffset({
