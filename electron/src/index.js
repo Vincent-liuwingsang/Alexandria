@@ -227,6 +227,19 @@ ipcMain.handle("open-book", (event, localBook) => {
   open(localBook.path);
 });
 
+ipcMain.handle("mark-book-as-read", (event, localBook) => {
+  const bookDataPath = [
+    ...localBook.path.split("/").slice(0, -1),
+    "data.json",
+  ].join("/");
+
+  const bookData = JSON.parse(fs.readFileSync(bookDataPath));
+
+  bookData.isRead = true;
+
+  fs.writeFileSync(bookDataPath, JSON.stringify(bookData));
+});
+
 ipcMain.handle("open-books-dir", (event) => {
   // opens the directory where the books are stored
   open(booksDir);
@@ -251,9 +264,8 @@ ipcMain.handle("download-book", (event, book) => {
 
     // getting the filename from the headers
     console.log(request.headers["content-disposition"]);
-    let filename = request.headers["content-disposition"].split(
-      `filename*=UTF-8''`
-    )[1];
+    let filename =
+      request.headers["content-disposition"].split(`filename*=UTF-8''`)[1];
     console.log({ filename });
 
     // ensuring the books directory exists

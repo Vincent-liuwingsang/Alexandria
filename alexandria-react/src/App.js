@@ -1,12 +1,11 @@
-import React, { Component } from "react";
 import axios from "axios";
-import moment from "moment";
 import { motion } from "framer-motion";
-import { GiBookshelf } from "react-icons/gi";
 import { debounce, deburr, uniqBy } from "lodash";
-import SpinnerBlack from "./spinner-black.svg";
-import SplitPane from "react-split-pane";
+import moment from "moment";
 import { Line } from "rc-progress";
+import React, { Component } from "react";
+import SplitPane from "react-split-pane";
+import SpinnerBlack from "./spinner-black.svg";
 import downloadCompleteSound from "./unconvinced.mp3";
 
 // loading electron from the window to access IpcRenderer
@@ -201,6 +200,10 @@ class App extends Component {
   onLocalBookClick = (localBook) => {
     // when a local book is clicked
     ipcRenderer.invoke("open-book", localBook);
+  };
+
+  onMarkAsReadClick = (localBook) => {
+    ipcRenderer.invoke("mark-book-as-read", localBook);
   };
 
   handleLibgenSearchResults = (searchResults, selectedBook) => {
@@ -957,7 +960,7 @@ class App extends Component {
     );
   };
 
-  LocalBooksResults = (props) => {
+  LocalBooksResults = (isRead = false) => {
     if (!this.state.localBooks) {
       return null;
     } else if (this.state.localBooks.length === 0) {
@@ -973,93 +976,106 @@ class App extends Component {
       );
     }
 
-    const BookRows = this.state.localBooks.map((localBook, index) => {
-      const isSelected = this.state.selectedBook?.id === localBook.book.id;
-      let book = localBook.book.volumeInfo;
+    const BookRows = this.state.localBooks
+      .filter((localBook) => !!localBook.book.isRead === isRead)
+      .map((localBook, index) => {
+        const isSelected = this.state.selectedBook?.id === localBook.book.id;
+        let book = localBook.book.volumeInfo;
 
-      const variants = {
-        initial: { opacity: 0, y: 60 },
-        animate: { opacity: 1, y: 0, transition: { delay: index * 0.03 } },
-      };
+        const variants = {
+          initial: { opacity: 0, y: 60 },
+          animate: { opacity: 1, y: 0, transition: { delay: index * 0.03 } },
+        };
 
-      return (
-        <motion.div
-          transition={{ duration: 0 }}
-          className="noSelect local-book-item"
-          initial="initial"
-          animate="animate"
-          variants={variants}
-          onClick={() => this.onLocalBookClick(localBook)}
-          data-index={index}
-          key={`local-${localBook.book.id}`}
-          whileHover={{
-            scale: 1.02,
-            transition: { duration: 0.2 },
-          }}
-          whileTap={{
-            backgroundColor: "rgba(0,100,255,.1)",
-          }}
-          style={{
-            display: "flex",
-            paddingTop: 10,
-            paddingBottom: 10,
-            backgroundColor: "white",
-            boxShadow: "6px 6px rgba(0,100,255,.1)",
-            paddingLeft: 20,
-            paddingRight: 20,
-            maxWidth: 420,
-            minWidth: 420,
-            margin: 15,
-            borderRadius: 8,
-          }}
-        >
-          {book.imageLinks ? (
-            <img
-              alt=""
-              className="noSelect"
-              src={book.imageLinks ? book.imageLinks.thumbnail : null}
-              style={{
-                marginRight: 20,
-                objectFit: "contain",
-                alignSelf: "flex-start",
-                height: 100,
-              }}
-            />
-          ) : (
-            this.NoCoverImage(100, 70, 17)
-          )}
-          <div className="noSelect" style={{}}>
-            <p
-              style={{
-                fontWeight: "bold",
-              }}
-            >
-              {book.title}
-              {book.subtitle ? ": " + book.subtitle : null}
-            </p>
+        return (
+          <motion.div
+            transition={{ duration: 0 }}
+            className="noSelect local-book-item"
+            initial="initial"
+            animate="animate"
+            variants={variants}
+            onClick={() => this.onLocalBookClick(localBook)}
+            data-index={index}
+            key={`local-${localBook.book.id}`}
+            whileHover={{
+              scale: 1.02,
+              transition: { duration: 0.2 },
+            }}
+            whileTap={{
+              backgroundColor: "rgba(0,100,255,.1)",
+            }}
+            style={{
+              display: "flex",
+              paddingTop: 10,
+              paddingBottom: 10,
+              backgroundColor: "white",
+              boxShadow: "6px 6px rgba(0,100,255,.1)",
+              paddingLeft: 20,
+              paddingRight: 20,
+              maxWidth: 420,
+              minWidth: 420,
+              margin: 15,
+              borderRadius: 8,
+            }}
+          >
+            {book.imageLinks ? (
+              <img
+                alt=""
+                className="noSelect"
+                src={book.imageLinks ? book.imageLinks.thumbnail : null}
+                style={{
+                  marginRight: 20,
+                  objectFit: "contain",
+                  alignSelf: "flex-start",
+                  height: 100,
+                }}
+              />
+            ) : (
+              this.NoCoverImage(100, 70, 17)
+            )}
+            <div className="noSelect" style={{}}>
+              <p
+                style={{
+                  fontWeight: "bold",
+                }}
+              >
+                {book.title}
+                {book.subtitle ? ": " + book.subtitle : null}
+              </p>
 
-            <p
-              style={{
-                color: "grey",
-                fontSize: 14,
-                marginTop: 5,
-              }}
-            >
-              {book.authors ? book.authors.join(", ") : "Author Unavailable"}
-            </p>
+              <p
+                style={{
+                  color: "grey",
+                  fontSize: 14,
+                  marginTop: 5,
+                }}
+              >
+                {book.authors ? book.authors.join(", ") : "Author Unavailable"}
+              </p>
 
-            <p
-              style={{
-                color: "grey",
-                fontSize: 14,
-              }}
-            >
-              {moment(book.publishedDate).year()}
-            </p>
-          </div>
-        </motion.div>
-      );
-    });
+              <p
+                style={{
+                  color: "grey",
+                  fontSize: 14,
+                }}
+              >
+                {moment(book.publishedDate).year()}
+              </p>
+              {!localBook.book.isRead && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    this.onMarkAsReadClick(localBook);
+                    window.location.reload(false);
+                  }}
+                >
+                  Mark as read
+                </button>
+              )}
+            </div>
+          </motion.div>
+        );
+      });
     return BookRows;
   };
 
@@ -1159,7 +1175,27 @@ class App extends Component {
               flexWrap: "wrap",
             }}
           >
-            {this.LocalBooksResults()}
+            {this.LocalBooksResults(false)}
+          </div>
+          <div>
+            <div
+              style={{
+                paddingTop: 20,
+                paddingLeft: 20,
+                paddingBottom: 10,
+                borderBottom: `2px solid #eee`,
+              }}
+            >
+              <h3 style={{}}>Read</h3>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+              }}
+            >
+              {this.LocalBooksResults(true)}
+            </div>
           </div>
         </div>
       );
